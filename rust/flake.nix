@@ -1,13 +1,14 @@
 {
-  description = "Ocaml dev flake";
+  description = "Rust dev flake by dpigeon";
 
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
+    devenv.url = "github:cachix/devenv";
     treefmt-nix = {
-      inputs.nixpkgs.follows = "nixpkgs";
       url = "github:numtide/treefmt-nix";
+      treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
     };
 
     naersk = {
@@ -19,57 +20,57 @@
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ inputs.treefmt-nix.flakeModule ];
+      perSystem =
+        { pkgs, ... }:
+        {
+          devenv.shells.default = {
+            packages = with pkgs; [ bacon ];
+
+            languages = {
+              rust.enable = true;
+              nix.enable = true;
+            };
+
+            treefmt = {
+              enable = true;
+              config.programs = {
+                rustfmt.enable = true;
+                nixfmt.enable = true;
+              };
+            };
+          };
+
+          packages =
+            let
+              pname = throw ''
+                	      You have to fill in the package name
+                              (outputs.perSystem.packages, pname parameter)
+                	    '';
+              prod = pkgs.callPackage ./default.nix { inherit pname; };
+            in
+            {
+              inherit prod;
+
+              # Uses native inputs.
+              #
+              # This makes for a faster iteration
+              # but it is less portable.
+              dev = (pkgs.callPackage inputs.naersk { }).buildPackage {
+                name = pname;
+                src = ./.;
+                buildInputs = [ ];
+                nativeBuildInputs = with pkgs; [ pkg-config ];
+              };
+
+              default = prod;
+            };
+        };
+      imports = [ inputs.devenv.flakeModule ];
       systems = [
         "x86_64-linux"
         "aarch64-linux"
         "x86_64-darwin"
         "aarch64-darwin"
       ];
-      perSystem =
-        { pkgs, ... }:
-        {
-          treefmt.programs = {
-            nixfmt.enable = true;
-            deadnix.enable = true;
-            nixf-diagnose.enable = true;
-            rustfmt.enable = true;
-          };
-
-          packages =
-            let
-              naerskLib = pkgs.callPackage inputs.naersk { };
-            in
-            rec {
-              default = prod;
-              prod = pkgs.callPackage ((import ./default.nix) {
-                pname = throw "You have to fill in the package name, under outputs.perSystem.packages.prod";
-              }) { };
-
-              # If there's some way of caching deps,
-              # change this in place and use it
-              dev = naerskLib.buildPackage {
-                name = "rust-wea";
-                src = ../.;
-                buildInputs = [ ];
-                nativeBuildInputs = with pkgs; [ pkg-config ];
-              };
-            };
-
-          devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [
-              watchexec
-
-              cargo
-              rustc
-              rustfmt
-              clippy
-              rust-analyzer
-            ];
-            nativeBuildInputs = with pkgs; [ pkg-config ];
-
-            env.RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-          };
-        };
     };
 }

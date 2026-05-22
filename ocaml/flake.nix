@@ -3,56 +3,56 @@
 
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
-
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+    devenv.url = "github:cachix/devenv";
     treefmt-nix = {
-      inputs.nixpkgs.follows = "nixpkgs";
       url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ inputs.treefmt-nix.flakeModule ];
+      perSystem =
+        { pkgs, ... }:
+        {
+          devenv.shells.default = {
+            pakages = with pkgs; [ watchexec ];
+
+            languages = {
+              ocaml.enable = true;
+              nix.enable = true;
+            };
+
+            treefmt = {
+              enable = true;
+              config.programs = {
+                ocamlformat.enable = true;
+                nixfmt.enable = true;
+              };
+            };
+          };
+
+          packages =
+            let
+              pname = throw ''
+                	      You have to fill in the package name
+                              (outputs.perSystem.packages, pname parameter)
+                	    '';
+            in
+            {
+              default = pkgs.callPackage ./default.nix { inherit pname; };
+            };
+        };
+
+      imports = [ inputs.devenv.flakeModule ];
       systems = [
         "x86_64-linux"
         "aarch64-linux"
         "x86_64-darwin"
         "aarch64-darwin"
       ];
-      perSystem =
-        { pkgs, ... }:
-        {
-          treefmt.programs = {
-            nixfmt.enable = true;
-            deadnix.enable = true;
-            nixf-diagnose.enable = true;
-            ocamlformat.enable = true;
-          };
-
-          packages = rec {
-              default = prod;
-              prod = pkgs.callPackage ((import ./default.nix) { pname = throw "You have to fill in the package name, under outputs.perSystem.packages.prod"; }) {};
-
-              # If there's some way of caching deps,
-              # change this in place and use it
-              dev = prod;
-            };
-
-          devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [
-              watchexec
-
-              dune_3
-              ocaml
-              ocamlPackages.utop
-              ocamlPackages.ocaml-lsp
-              ocamlformat
-              ocamlPackages.odoc
-              ocamlPackages.alcotest
-            ];
-          };
-        };
     };
 }

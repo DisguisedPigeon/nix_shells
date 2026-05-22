@@ -2,7 +2,6 @@
 # I will probably migrate to using callPackage's second arg.
 {
   pname,
-  name ? pname,
   version ? "0.0.0",
   src ? ./.,
 }:
@@ -12,7 +11,7 @@
   ocaml,
 }:
 
-haskellPackages.mkDerivation (finalAttrs: {
+haskellPackages.mkDerivation (_finalAttrs: {
   inherit
     pname
     version

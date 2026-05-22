@@ -1,10 +1,11 @@
-{
+{ 
   pname,
   name ? pname,
   version ? "0.0.0",
   src ? ./.,
-}:
-{ beamPackages }:
+
+  beamPackages
+}: 
 beamPackages.buildMix {
   inherit
     pname
@@ -14,7 +15,7 @@ beamPackages.buildMix {
     ;
 
   beamDeps =
-    # with beamPackages.;
+    # with beamPackages;
     [
     ];
 }

@@ -3,12 +3,14 @@
 
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
-
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+    devenv.url = "github:cachix/devenv";
     treefmt-nix = {
-      inputs.nixpkgs.follows = "nixpkgs";
       url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+
     gleam2nix = {
       url = "git+https://git.isincredibly.gay/srxl/gleam2nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -18,6 +20,52 @@
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      perSystem =
+        { pkgs, ... }:
+        {
+          devenv.shells.default = {
+            packages = with pkgs; [ watchexec inputs.gleam2nix.gleam2nix ];
+
+            languages = {
+              gleam.enable = true;
+              nix.enable = true;
+            };
+
+            treefmt = {
+              enable = true;
+              config.programs = {
+                gleam.enable = true;
+                nixfmt.enable = true;
+              };
+            };
+
+            # # Erlang support (language comes with gleam)
+            # treefmt.config.programs.erlfmt.enable = true;
+
+            # # Elixir support
+            # languages.elixir.enable = true;
+            # treefmt.config.programs.mix-format.enable = true;
+
+            # # Javascript support
+            # languages.javascript.enable = true;
+            # treefmt.config.programs.prettier.enable = true;
+          };
+
+          packages =
+            let
+              pname = throw ''
+                	      You have to fill in the package name
+                              (outputs.perSystem.packages, pname parameter)
+			      Remember runnning gleam2nix as well
+                	    '';
+            in
+            {
+              default = pkgs.callPackage ./default.nix {
+                inherit pname;
+                inherit (inputs) gleam2nix;
+              };
+            };
+        };
       imports = [ inputs.treefmt-nix.flakeModule ];
       systems = [
         "x86_64-linux"
@@ -25,46 +73,5 @@
         "x86_64-darwin"
         "aarch64-darwin"
       ];
-      perSystem =
-        { pkgs, lib, ... }:
-        {
-          treefmt.programs = {
-            nixfmt.enable = true;
-            deadnix.enable = true;
-            nixf-diagnose.enable = true;
-            gleam.enable = true;
-
-            # erlfmt.enable = true;
-            # mix-format.enable = true;
-            # prettier.enable = true;
-          };
-
-          packages = rec {
-            default = prod;
-            prod = pkgs.callPackage ((import ./default.nix) {
-              pname = throw "You have to fill in the package name. Remember running gleam2nix too.";
-            }) { gleam2nix = inputs.gleam2nix; };
-
-            dev = prod;
-          };
-
-          devShells.default = pkgs.mkShell {
-            buildInputs =
-              with pkgs;
-              [
-                watchexec
-
-                gleam
-
-                beamMinimal27Packages.erlang
-                beamMinimal27Packages.rebar3
-                beamMinimal27Packages.erlfmt
-                erlang-language-platform
-
-                gitmoji-cli
-              ]
-              ++ lib.optional stdenv.isLinux inotify-tools;
-          };
-        };
     };
 }

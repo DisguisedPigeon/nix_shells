@@ -1,34 +1,29 @@
-# Parameters for the builder.
-# I will probably migrate to using callPackage's second arg.
 {
   pname,
   name ? pname,
   version ? "0.0.0",
   src ? ./.,
-}:
-{
+
   lib,
+  versionAtLeast ? lib.versionAtLeast,
+
+  ocaml,
   ocamlPackages,
   buildDunePackage ? ocamlPackages.buildDunePackage,
-  ocaml,
 }:
-
-buildDunePackage (finalAttrs: {
+buildDunePackage (_: {
   inherit
+    pname
     name
     version
     src
-    pname
     ;
 
   checkInputs = [ ];
-
   buildInputs = [ ];
-
   propagatedBuildInputs = [ ];
 
-  # Check minimum ocaml version
-  doCheck = lib.versionAtLeast ocaml.version "4.05";
+  doCheck = versionAtLeast ocaml.version "4.05";
 
   meta = { };
 })
